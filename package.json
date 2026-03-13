@@ -1,0 +1,6 @@
+{
+  "name": "sera-ai-detector",
+  "version": "1.0.0",
+  "description": "Sera – AI Image Detector",
+  "engines": { "node": "18.x" }
+}

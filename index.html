@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sera – AI Image Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --amber: #c9853a; --cream: #f2dfc0; --muted: #a07850; --dim: #5a3f2a;
+    --green: #4ade80; --yellow: #fbbf24; --red: #f87171;
+  }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #2c1a0e 0%, #3d2410 45%, #2a1508 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; font-family: 'Lora', Georgia, serif; color: var(--cream);
+  }
+  .blob1 { position: fixed; top: -100px; right: -80px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(180,90,30,0.16) 0%, transparent 70%); pointer-events: none; }
+  .blob2 { position: fixed; bottom: -80px; left: -60px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(220,140,60,0.10) 0%, transparent 70%); pointer-events: none; }
+  .wrap { width: 100%; max-width: 540px; animation: fadeUp 0.6s ease both; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin   { to { transform: rotate(360deg); } }
+  @keyframes pulse  { 0%,100%{opacity:.3} 50%{opacity:.9} }
+  .header { text-align: center; margin-bottom: 28px; }
+  .header .eyebrow { font-size: 10px; letter-spacing: 6px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; opacity: .7; }
+  .header h1 { font-family: 'Playfair Display', serif; font-size: 56px; font-weight: 700; color: var(--cream); line-height: 1; letter-spacing: -2px; }
+  .header .rule { width: 48px; height: 2px; background: linear-gradient(90deg, transparent, var(--amber), transparent); margin: 12px auto; }
+  .header .sub { font-size: 12px; font-style: italic; color: var(--muted); }
+  .card { background: rgba(255,240,220,0.04); border: 1px solid rgba(201,168,130,0.22); border-radius: 18px; overflow: hidden; backdrop-filter: blur(14px); box-shadow: 0 28px 64px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,220,180,.07); }
+  .upload-section { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Gallery label */
+  .gallery-label {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 16px;
+    background: linear-gradient(135deg, rgba(201,133,58,0.18), rgba(180,100,30,0.12));
+    border: 1.5px solid rgba(201,168,130,0.45); border-radius: 12px;
+    color: var(--cream); font-family: 'Playfair Display', serif; font-size: 15px;
+    cursor: pointer; transition: all .2s; user-select: none;
+  }
+  .gallery-label:hover { background: rgba(201,133,58,0.32); border-color: var(--amber); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .gallery-label:active { transform: translateY(0); }
+  #fileInput, #fileInputResult { display: none; }
+
+  .divider { display: flex; align-items: center; gap: 12px; }
+  .divider-line { flex: 1; height: 1px; background: rgba(201,168,130,0.15); }
+  .divider-text { font-size: 11px; font-style: italic; color: var(--dim); }
+
+  .url-row { display: flex; gap: 8px; }
+  .url-input { flex: 1; padding: 13px 15px; background: rgba(0,0,0,.35); border: 1.5px solid rgba(201,168,130,.28); border-radius: 10px; color: var(--cream); font-family: 'Lora', serif; font-size: 13px; outline: none; transition: border-color .2s; }
+  .url-input:focus { border-color: var(--amber); }
+  .url-input::placeholder { color: var(--dim); font-style: italic; }
+  .go-btn { padding: 13px 20px; background: rgba(201,133,58,.18); border: 1.5px solid rgba(201,168,130,.35); border-radius: 10px; color: var(--muted); font-family: 'Playfair Display', serif; font-size: 14px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+  .go-btn:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .go-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .drop-zone { min-height: 100px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.18); border: 1.5px dashed rgba(201,168,130,.22); border-radius: 12px; transition: all .2s; }
+  .drop-zone.drag-over { background: rgba(201,133,58,.1); border-color: var(--amber); }
+  .drop-zone-inner { text-align: center; padding: 20px; }
+  .drop-zone-inner .icon { font-size: 26px; opacity: .3; margin-bottom: 8px; transition: opacity .2s; }
+  .drop-zone.drag-over .icon { opacity: .85; }
+  .drop-zone-inner p { font-family: 'Playfair Display', serif; color: #7a5a3a; font-size: 13px; }
+  .drop-zone.drag-over p { color: var(--amber); }
+  .drop-zone-inner small { font-size: 10px; font-style: italic; color: var(--dim); margin-top: 4px; display: block; }
+
+  .paste-hint { text-align: center; padding: 6px; }
+  .paste-hint p { font-size: 12px; font-style: italic; color: var(--dim); }
+  .paste-hint kbd { background: rgba(201,133,58,.18); border: 1px solid rgba(201,168,130,.3); border-radius: 4px; padding: 2px 7px; font-size: 11px; font-family: monospace; color: var(--muted); }
+
+  .preview-wrap { position: relative; }
+  .preview-wrap img { width: 100%; display: block; max-height: 400px; object-fit: contain; background: rgba(0,0,0,.35); }
+  .change-btn { position: absolute; top: 10px; right: 10px; background: rgba(20,10,2,.82); border: 1px solid rgba(201,168,130,.3); border-radius: 8px; color: var(--muted); font-family: 'Lora', serif; font-size: 11px; padding: 7px 13px; cursor: pointer; backdrop-filter: blur(8px); transition: all .2s; }
+  .change-btn:hover { background: rgba(201,133,58,.25); color: var(--cream); }
+
+  .spinner-overlay { position: absolute; inset: 0; background: rgba(25,10,3,.76); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  .spinner { width: 46px; height: 46px; border: 2px solid rgba(201,168,130,.15); border-top-color: var(--amber); border-radius: 50%; animation: spin .85s linear infinite; }
+  .spinner-label { font-style: italic; color: var(--muted); font-size: 11px; letter-spacing: 3px; }
+
+  .results { padding: 24px 26px 28px; border-top: 1px solid rgba(201,168,130,.12); }
+  .prob-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+  .prob-label { font-size: 13px; font-style: italic; color: #c9a882; }
+  .prob-value { font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 700; line-height: 1; }
+  .bar-track { width: 100%; height: 14px; background: rgba(255,255,255,.88); border-radius: 99px; overflow: hidden; box-shadow: inset 0 1px 4px rgba(0,0,0,.2); }
+  .bar-fill { height: 100%; border-radius: 99px; width: 0%; transition: width 1.4s cubic-bezier(.16,1,.3,1), background .5s ease; }
+  .bar-zones { display: flex; justify-content: space-between; margin-top: 5px; }
+  .bar-zones span { font-size: 9px; font-family: Georgia, serif; }
+  .verdict { margin-top: 14px; text-align: center; font-style: italic; font-size: 13px; letter-spacing: 2px; }
+  .analysis-block { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(201,168,130,.1); }
+  .analysis-label { font-size: 11px; font-style: italic; color: #9a7558; letter-spacing: 1px; margin-bottom: 8px; }
+  .analysis-text { font-size: 13px; line-height: 1.8; color: #b08060; }
+  .try-again-label { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; padding: 13px; background: rgba(201,133,58,.1); border: 1.5px solid rgba(201,168,130,.28); border-radius: 10px; color: var(--muted); font-family: 'Playfair Display', serif; font-size: 13px; cursor: pointer; transition: all .2s; }
+  .try-again-label:hover { background: rgba(201,133,58,.22); border-color: var(--amber); color: var(--cream); }
+  .error-box { margin-top: 12px; padding: 12px 16px; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.25); border-radius: 10px; color: #f87171; font-size: 12px; font-style: italic; }
+  .footer { text-align: center; margin-top: 24px; font-size: 10px; font-style: italic; color: #3a2010; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<div class="blob1"></div>
+<div class="blob2"></div>
+<div class="wrap">
+  <div class="header">
+    <p class="eyebrow">Image Analysis</p>
+    <h1>Sera</h1>
+    <div class="rule"></div>
+    <p class="sub">Detect AI‑generated images with warmth &amp; precision</p>
+  </div>
+
+  <div class="card" id="card">
+    <div class="upload-section" id="uploadSection">
+      <label class="gallery-label" for="fileInput">
+        <span style="font-size:20px">🖼️</span>
+        <span>Choose from Gallery or Files</span>
+      </label>
+      <input type="file" id="fileInput" accept="image/*"/>
+
+      <div class="divider"><div class="divider-line"></div><span class="divider-text">or paste a URL</span><div class="divider-line"></div></div>
+
+      <div class="url-row">
+        <input class="url-input" id="urlInput" type="url" placeholder="https://example.com/image.jpg"/>
+        <button class="go-btn" id="urlBtn" onclick="handleUrl()">Analyse</button>
+      </div>
+
+      <div class="divider"><div class="divider-line"></div><span class="divider-text">or drag &amp; drop</span><div class="divider-line"></div></div>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-inner">
+          <div class="icon">🖼️</div>
+          <p>Drop an image here</p>
+          <small>JPG · PNG · WEBP · GIF</small>
+        </div>
+      </div>
+
+      <div class="paste-hint">
+        <p>Or copy any image &amp; press <kbd>Ctrl+V</kbd> / <kbd>⌘V</kbd></p>
+      </div>
+    </div>
+
+    <div id="previewSection" style="display:none">
+      <div class="preview-wrap">
+        <img id="previewImg" src="" alt="preview"/>
+        <button class="change-btn" onclick="reset()">✕ Try Another</button>
+        <div class="spinner-overlay" id="spinnerOverlay" style="display:none">
+          <div class="spinner"></div>
+          <span class="spinner-label">reading…</span>
+        </div>
+      </div>
+      <div class="results" id="resultsBlock" style="display:none">
+        <div class="prob-row">
+          <span class="prob-label">AI Probability</span>
+          <span class="prob-value" id="probValue">—</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+        <div class="bar-zones">
+          <span style="color:#4ade80">Real</span>
+          <span style="color:#c9a882">10%</span>
+          <span style="color:#c9a882">50%</span>
+          <span style="color:#f87171">AI</span>
+        </div>
+        <div class="verdict" id="verdict"></div>
+        <div class="analysis-block" id="analysisBlock" style="display:none">
+          <p class="analysis-label">Analysis</p>
+          <p class="analysis-text" id="analysisText"></p>
+        </div>
+        <label class="try-again-label" for="fileInputResult">
+          <span>🖼️</span><span>Analyse Another Image</span>
+        </label>
+        <input type="file" id="fileInputResult" accept="image/*"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox" style="display:none"></div>
+  <p class="footer">powered by claude vision</p>
+</div>
+
+<script>
+  function showError(msg) { const b = document.getElementById("errorBox"); b.textContent = msg; b.style.display = "block"; }
+  function clearError() { document.getElementById("errorBox").style.display = "none"; }
+
+  function reset() {
+    document.getElementById("uploadSection").style.display = "flex";
+    document.getElementById("previewSection").style.display = "none";
+    document.getElementById("resultsBlock").style.display = "none";
+    document.getElementById("spinnerOverlay").style.display = "none";
+    document.getElementById("urlInput").value = "";
+    clearError();
+  }
+
+  function showPreview(src) {
+    document.getElementById("uploadSection").style.display = "none";
+    document.getElementById("previewSection").style.display = "block";
+    document.getElementById("resultsBlock").style.display = "none";
+    document.getElementById("spinnerOverlay").style.display = "flex";
+    document.getElementById("previewImg").src = src;
+    clearError();
+  }
+
+  function showResults(prob, reasoning) {
+    document.getElementById("spinnerOverlay").style.display = "none";
+    document.getElementById("resultsBlock").style.display = "block";
+    const color = prob < 10 ? "#4ade80" : prob <= 50 ? "#fbbf24" : "#f87171";
+    const label = prob < 10 ? "✦ Looks Real ✦" : prob <= 50 ? "✦ Uncertain ✦" : "✦ Likely AI ✦";
+    const bg = prob < 10 ? "linear-gradient(90deg,#4ade8099,#4ade80)" : prob <= 50 ? "linear-gradient(90deg,#fbbf2499,#fbbf24)" : "linear-gradient(90deg,#f8717199,#f87171)";
+    document.getElementById("probValue").textContent = prob + "%";
+    document.getElementById("probValue").style.color = color;
+    document.getElementById("verdict").textContent = label;
+    document.getElementById("verdict").style.color = color;
+    const fill = document.getElementById("barFill");
+    fill.style.background = bg;
+    fill.style.boxShadow = `0 0 10px ${color}55`;
+    requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = prob + "%"; }));
+    if (reasoning) {
+      document.getElementById("analysisText").textContent = reasoning;
+      document.getElementById("analysisBlock").style.display = "block";
+    }
+  }
+
+  async function analyseBase64(base64, mediaType) {
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, mediaType })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      showResults(data.ai_probability, data.reasoning);
+    } catch(e) {
+      document.getElementById("spinnerOverlay").style.display = "none";
+      showError("Analysis failed — please try again.");
+    }
+  }
+
+  function handleFile(file) {
+    if (!file || !file.type.startsWith("image/")) { showError("Please select an image file."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      showPreview(reader.result);
+      analyseBase64(reader.result.split(",")[1], file.type || "image/jpeg");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  document.getElementById("fileInput").addEventListener("change", function() { if (this.files[0]) { handleFile(this.files[0]); this.value = ""; } });
+  document.getElementById("fileInputResult").addEventListener("change", function() { if (this.files[0]) { reset(); handleFile(this.files[0]); this.value = ""; } });
+
+  async function handleUrl() {
+    const raw = document.getElementById("urlInput").value.trim();
+    if (!raw) return;
+    clearError();
+    const btn = document.getElementById("urlBtn");
+    btn.disabled = true; btn.textContent = "…";
+    try {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(raw)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) throw new Error();
+      const reader = new FileReader();
+      reader.onload = () => { showPreview(reader.result); analyseBase64(reader.result.split(",")[1], blob.type || "image/jpeg"); };
+      reader.readAsDataURL(blob);
+    } catch(e) {
+      showError("Couldn't load that URL. Try a direct image link ending in .jpg / .png / .webp");
+    } finally { btn.disabled = false; btn.textContent = "Analyse"; }
+  }
+  document.getElementById("urlInput").addEventListener("keydown", e => { if (e.key === "Enter") handleUrl(); });
+
+  const dropZone = document.getElementById("dropZone");
+  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("drag-over"); handleFile(e.dataTransfer.files[0]); });
+
+  document.addEventListener("paste", e => {
+    const items = e.clipboardData?.items || [];
+    for (const item of items) {
+      if (item.type.startsWith("image/")) { e.preventDefault(); handleFile(item.getAsFile()); return; }
+    }
+  });
+</script>
+</body>
+</html>
